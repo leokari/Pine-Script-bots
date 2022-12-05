@@ -1,0 +1,224 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © ugurvu
+
+//@version=4
+study("SAR BOT", overlay=true)
+
+var A_06 = '⚪    DAYS and TIME'
+
+DAYS = input('23456', title='    🌞', group=A_06, tooltip='Sunday=1,....,Saturday=7', type=input.string)
+TIME = input('0200-1600', title='    ⏰', group=A_06,type=input.session)
+
+
+//.................. SAR ...........
+
+
+start = input(0.02, group="SAR")
+increment = input(0.02, group="SAR")
+maximum = input(0.2, "Max Value", group="SAR")
+out = sar(start, increment, maximum)
+
+var int SAR = na
+if low > out
+    SAR := 1
+else if high < out
+    SAR := -1
+else
+    SAR := 0
+//........................HAMBLE..................................................
+
+HAMBLE = input(false, "ON/OFF",    input.bool, group="HUMBLE")
+period = input(title="Period", type=input.integer, defval=17, maxval=60, minval=2, group="HUMBLE")
+modhl = input(title="Mode With Wicks", type=input.bool, defval=true, group="HUMBLE")
+use_rma = input(title="Use RMA", type=input.bool, defval=true, group="HUMBLE")
+barrange=abs(open-close)
+lin_reg = input(title="Lin Reg", type=input.bool, defval=true, group="HUMBLE")
+signal_length = input(title="linreg Smoothing", type=input.integer, minval = 1, defval = 20, group="HUMBLE")
+smaperiod = input(title="SMA Period", type=input.integer, defval=50, minval=2, group="HUMBLE")
+smooth = input(1, minval=1, title="Smooth", group="HUMBLE")
+len = input(50, minval=1, title="Length OL", group="HUMBLE")
+smooth_ol = input(30, minval=1, title="Smooth OL", group="HUMBLE")
+matype = input(title="MA Type", defval="SMA", options=["RMA", "SMA", "EMA", "WMA"], group="HUMBLE")
+
+sma1 = 0.0
+sma2 = 0.0
+
+if matype == "RMA"
+    sma1 := rma(close, len)
+    sma2 := rma(hlc3, len)
+    
+if matype == "SMA"
+    sma1 := sma(close, len)
+    sma2 := sma(hlc3, len)
+
+if matype == "EMA"
+    sma1 := ema(close, len)
+    sma2 := ema(hlc3, len)
+
+if matype == "WMA"
+    sma1 := wma(close, len)
+    sma2 := wma(hlc3, len)
+			
+
+oneline = sma1 > sma2 ? sma1 : sma2
+
+var color linecolor = color.white
+
+if (sma1 > sma2  and oneline > oneline[smooth_ol])
+    linecolor := color.green
+else if (sma1 < sma2  and oneline < oneline[smooth_ol])
+    linecolor := color.red
+else
+    linecolor := color.white
+//plot(oneline, color= linecolor, linewidth=3)
+
+
+longHamble  = not HAMBLE or (linecolor == color.green and close > oneline)
+shortHamble = not HAMBLE or (linecolor == color.red   and close < oneline)
+
+//..................EMA SAM.................................
+
+emasma = input(false, "ON/OFF",    input.bool, group="EMA SMA")
+
+srcc = input(200, "EMA Length", group="EMA SMA")
+srcs = input(50, "SMA Length", group="EMA SMA")
+
+EMA = ema(close, srcc)
+SMA = sma(close, srcs)
+
+longMa  = not emasma or (SMA > EMA and close > SMA)
+shortMa = not emasma or (SMA < EMA and close < SMA)
+
+//...................EMA DEMA.............................................
+
+emadema = input(false, "ON/OFF",    input.bool, group="EMA DEMA")
+
+EMAA = ema(close,200)
+
+length = input(100, minval=1)
+src = close //input(close, title="Source")
+e1 = ema(src, length)
+e2 = ema(e1, length)
+dema = 2 * e1 - e2
+
+longDma  = not emadema or (dema > EMAA and close > dema)
+shortDma = not emadema or (dema < EMAA and close < dema)
+
+//........................volom flow.......................................
+
+VOLF = input(false, "on/OFF",    input.bool, group="Volume Flow")
+lengthw = input(100, title="VFI length", group="Volume Flow")
+coef = 0.2
+vcoef = input(1.5, title="Max. vol. cutoff", group="Volume Flow")
+signalLength=input(20, group="Volume Flow")
+smoothVFI=false
+
+maw(x,y) => smoothVFI ? sma(x,y) : x
+
+typical=hlc3
+inter = log( typical ) - log( typical[1] )
+vinter = stdev(inter, 30 )
+cutoff = coef * vinter * close
+vave = sma( volume, lengthw )[1]
+vmax = vave * vcoef
+vc = iff(volume < vmax, volume, vmax) //min( volume, vmax )
+mf = typical - typical[1]
+vcp = iff( mf > cutoff, vc, iff ( mf < -cutoff, -vc, 0 ) )
+
+vfi = maw(sum( vcp , lengthw )/vave, 3)
+vfima=ema( vfi, signalLength )
+d=vfi-vfima
+
+// plot( vfima , title="EMA of vfi", color=color.orange)
+// plot( vfi, title="vfi", color=color.green,linewidth=2)
+
+longVfi  = not VOLF or (vfi > vfima and vfi > 0 and vfima > 0 )
+shortVfi = not VOLF or (vfi < vfima and vfi < 0 and vfima < 0 )
+
+
+//............................HVI...........................................
+
+HVIFF = input(false, "ON/OFF",    input.bool, group="Volume")
+lengthy=input(200, group="Volume")
+range=high-low
+rangeAvg=sma(range,lengthy)
+
+volumeA=sma(volume, lengthy)
+divisor=input(1, group="Volume")
+
+high1=high[1]
+low1=low[1]
+mid1=hl2[1]
+
+u1 = mid1 + (high1-low1)/divisor
+d1 = mid1 - (high1-low1)/divisor
+
+r_enabled1 = (range > rangeAvg) and (close < d1) and volume > volumeA
+r_enabled2 = close < mid1
+r_enabled = r_enabled1 or r_enabled2
+
+g_enabled1 = close > mid1
+g_enabled2 = (range > rangeAvg) and (close > u1) and (volume > volumeA)
+g_enabled3 = (high > high1) and (range < rangeAvg/1.5) and (volume < volumeA)
+g_enabled4 = (low < low1) and (range < rangeAvg/1.5) and (volume > volumeA)
+g_enabled = g_enabled1 or g_enabled2 or g_enabled3 or g_enabled4
+
+gr_enabled1 = (range > rangeAvg) and (close > d1) and (close < u1) and (volume > volumeA) and (volume < volumeA*1.5) and (volume > volume[1])
+gr_enabled2 = (range < rangeAvg/1.5) and (volume < volumeA/1.5)
+gr_enabled3 = (close > d1) and (close < u1)
+gr_enabled = gr_enabled1 or gr_enabled2 or gr_enabled3
+
+v_color=gr_enabled ? color.gray : g_enabled ? color.green : r_enabled ? color.red : color.blue
+
+
+var int HVIT = na 
+if gr_enabled
+    HVIT := 0
+else if g_enabled
+    HVIT := 1
+else if r_enabled
+    HVIT := -1
+else
+    HVIT := 0
+
+
+longVol  = not HVIFF or HVIT == 1
+shortVol = not HVIFF or HVIT == -1
+
+
+
+//...........................................................................
+
+inSession(sess) =>na(time(timeframe.period, sess + ':' + DAYS)) == false
+
+
+// var int Signal = na
+// if      inSession(TIME) and SAR > 0 and SAR[1] < 0 and close > out[1] and longHamble  and longMa  and longDma  and longVfi  and longVol   
+//     Signal := 1
+// else if inSession(TIME) and SAR < 0 and SAR[1] > 0 and close < out[1] and shortHamble and shortMa and shortDma and shortVfi and shortVol 
+//     Signal := -1
+// else
+//     Signal := 0
+
+
+BUY  = inSession(TIME) and SAR > 0 and SAR[1] < 0 and close > out[1] and longHamble  and longMa  and longDma  and longVfi  and longVol
+SELL = inSession(TIME) and SAR < 0 and SAR[1] > 0 and close < out[1] and shortHamble and shortMa and shortDma and shortVfi and shortVol
+
+plotshape(BUY, "Up", style=shape.triangleup, location=location.belowbar, color=color.white, size=size.tiny)
+plotshape(SELL, "Dw", style=shape.triangledown, location=location.abovebar, color=color.white, size=size.tiny)
+
+
+    
+
+var X_ = array.new_float(1)
+if low > high
+    array.set(X_,0,open)
+
+
+
+if inSession(TIME) and BUY
+    alert(""+tostring(syminfo.tickerid)+", BUY ", alert.freq_once_per_bar_close)
+else if inSession(TIME) and SELL
+    alert(""+tostring(syminfo.tickerid)+", SELL", alert.freq_once_per_bar_close)
+else
+    array.clear(X_) 
