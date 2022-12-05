@@ -1,5 +1,5 @@
 //@version=4
-// © MJK7
+// © leokari100
 strategy("ALPHA RED", overlay=true, initial_capital=1000)
 
 // INPUT    {
