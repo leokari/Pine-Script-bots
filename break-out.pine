@@ -1,0 +1,318 @@
+// @version=4
+
+strategy("Breakout", overlay=true, default_qty_value=1)
+
+// Get user input
+
+var a1     = "PIPS"
+entryPips  = input(title="Entry Pips", defval=3.0, type=input.float, group=a1, tooltip="How many pips above high to place entry order")
+stopPips   = input(title="Stop Pips", defval=5.0, type=input.float, group=a1, tooltip="stop loss distance to start")
+targetPips = input(title="Target Pips", defval=10.0, type=input.float, group=a1, tooltip="Fixed pip profit target distance")
+H_T        = input(title="Higher Time Frame",type=input.resolution, defval="30", group=a1,tooltip="Check time!")
+days       = input(title="Days To Trade", defval="23456", group=a1, tooltip="Which days to trade this strategy on (Monday & Friday disabled by default)")
+timezone   = input(title="Timezone", type=input.session, defval="0200-1800", group=a1, tooltip="Which timezone to search for FTB signals in")
+
+var a2     = "Trading View Position"
+long_p     = input(true, title="Long Position", type=input.bool, group=a2)
+short_p    = input(true, title="Short Position",type=input.bool, group=a2)
+
+var a3     = "Alert Send To MT4"
+long_a     = input(true, title="Long Alert", type=input.bool, group=a3)
+short_a    = input(true, title="Short Alert",type=input.bool, group=a3)
+
+var a4     = "Filter"
+supertrend = input( true, title="Super Trend",            type=input.bool,       group=a4,tooltip="")
+changeATR  = input( true, title="Super Trend:Change ATR", type=input.bool,       group=a4,tooltip="Change ATR Calculation Method ?")
+//src      = input(  hl2, title="Source",                                        group=a4,tooltip="")
+Periods    = input( 20,   title="ATR Period",             type=input.integer,    group=a4,tooltip="")
+Multiplier = input( 5.0,  title="ATR Multiplier",step=0.1,type=input.float,      group=a4,tooltip="")
+halftrend  = input(false, title="Half Trend",             type=input.bool,       group=a4,tooltip="")
+amplitude  = input(  2,   title="Amplitude",              type=input.integer,    group=a4,tooltip="")
+//CH_Dev   = input(  2,   title="Channel Deviation",      type=input.integer,    group=a4,tooltip="")
+Fema       = input(false, title="EMA",                  type=input.bool,       group=a4,tooltip="")
+Flen       = input(  200, title="Length",           type=input.integer,    group=a4,tooltip="")
+
+
+var a5     = "Stop Loss"
+trailing   = input(true, title="trailing ?",    type=input.bool,  group=a5, tooltip="ON AND OF TRAILING STOP LOSS")
+trailtrig  = input( 20, title="Trail Trig",     type=input.integer, minval=1,  step=1, group=a5,tooltip="")
+traildist  = input( 10 , title="Trail Distance", type=input.integer, minval=1,  step=1, group=a5,tooltip="")
+trailstep  = input( 10, title="Trail Step",     type=input.integer, minval=1,  step=1, group=a5,tooltip="")
+
+var a6     = "PINE CONNECTOR"
+
+licenseID  = input(title="License ID", defval="", type=input.string, group=a6, tooltip="This is your PineConnector license ID")
+manual     = input(false, title="Manual Symbol ?", type=input.bool, group=a6)
+symbool    = input(title= "Symbol", defval= "", type=input.string, group=a6)
+risk       = input(title="Risk",   defval=0.4, step=0.1, minval=0.01 ,type=input.float, group=a6, tooltip="Risk Per Trade")
+spread     = input(title="Spread", defval=5, step=0.1, minval=0.1 ,type=input.float, group=a6, tooltip="Maximum Spread")
+tradingview= input(title="Trading View Decimal", defval=2, type=input.integer, group=a6, tooltip="How many pips above high to place entry order")
+metatrader = input(title="MT4 Decimal", defval=2, type=input.integer, group=a6, tooltip="Fixed pip stop loss distance")
+
+//...................................................
+
+symbol = manual ? symbool : syminfo.ticker
+
+//........................................................................
+var int Ekhtelaf = na
+var float ZZ = na
+if tradingview == metatrader
+    ZZ := 1
+else if tradingview > metatrader
+    Ekhtelaf := tradingview - metatrader
+    ZZ := 1/pow(10,Ekhtelaf)
+else if tradingview < metatrader
+    Ekhtelaf := metatrader - tradingview 
+    ZZ := pow(10,Ekhtelaf)
+else
+    Ekhtelaf := na
+    ZZ := na
+
+stopPips_   = stopPips * ZZ
+targetPips_ = targetPips * ZZ
+trailtrig_  = trailtrig * ZZ
+traildist_  = traildist * ZZ
+trailstep_  = trailstep * ZZ
+spread_     = spread * ZZ
+
+//...............................................................................
+// Get highs and lows
+max_x(x,condition) => 
+    var max = 0.0 
+    if condition 
+        if x > max 
+            max := x
+        else if x <= max 
+            max := max
+    else 
+        max:=0.0
+
+
+min_x(x,condition) => 
+    var min = 1000000.0 
+    if condition 
+        if x < min 
+            min := x
+        else if x >= min 
+            min := min
+    else 
+        min := 1000000.0
+
+// Get highs and lows
+newSeason = change(time(H_T))
+
+f = max_x(high,newSeason==0)
+g = min_x(low, newSeason==0)
+
+
+var low_  = 0.0
+var high_ = 0.0
+if newSeason != 0
+    high_ := f[1]
+    low_  := g[1]
+
+// Determine buy & sell point (default 3 pips/30 points above/below high/low)
+buyPoint  = high_ + (entryPips * 10 * syminfo.mintick)
+sellPoint = low_ - (entryPips * 10 * syminfo.mintick)
+
+// Determine stop loss (default 5 pips/50 points above/below buy/sell point)
+stopLossLong  = buyPoint - (stopPips * 10 * syminfo.mintick)
+stopLossShort = sellPoint + (stopPips * 10 * syminfo.mintick)
+
+
+///////////////////////////////////////////////////////////////////////////////////////
+
+// GET HIGHER EMA For FILTER
+
+emaSmooth = ema(close, Flen)
+
+// GET SUPER TREND For FILTER
+atr2 = sma(tr, Periods)
+atr= changeATR ? atr(Periods) : atr2
+up=hl2-(Multiplier*atr)
+up1 = nz(up[1],up)
+up := close[1] > up1 ? max(up,up1) : up
+dn=hl2+(Multiplier*atr)
+dn1 = nz(dn[1], dn)
+dn := close[1] < dn1 ? min(dn, dn1) : dn
+trend = 1
+trend := nz(trend[1], trend)
+trend := trend == -1 and close > dn1 ? 1 : trend == 1 and close < up1 ? -1 : trend
+
+// GET HALF TREND For FILTER
+var int Htrend = 0
+var int nextTrend = 0
+var float maxLowPrice = nz(low[1], low)
+var float minHighPrice = nz(high[1], high)
+var float Hup = 0.0
+var float down = 0.0
+float atrHigh = 0.0
+float atrLow = 0.0
+float arrowHup = na
+float arrowDown = na
+Hatr = atr(100) / 2
+dev = 2 * Hatr
+highPrice = high[abs(highestbars(amplitude))]
+lowPrice = low[abs(lowestbars(amplitude))]
+highma = sma(high, amplitude)
+lowma = sma(low, amplitude)
+if nextTrend == 1
+	maxLowPrice := max(lowPrice, maxLowPrice)
+
+	if highma < maxLowPrice and close < nz(low[1], low)
+		Htrend := 1
+		nextTrend := 0
+		minHighPrice := highPrice
+else
+	minHighPrice := min(highPrice, minHighPrice)
+
+	if lowma > minHighPrice and close > nz(high[1], high)
+		Htrend := 0
+		nextTrend := 1
+		maxLowPrice := lowPrice
+
+if Htrend == 0
+	if not na(Htrend[1]) and Htrend[1] != 0
+		Hup := na(down[1]) ? down : down[1]
+		arrowHup := Hup - Hatr
+	else
+		Hup := na(Hup[1]) ? maxLowPrice : max(maxLowPrice, Hup[1])
+	atrHigh := Hup + dev
+	atrLow := Hup - dev
+else
+	if not na(Htrend[1]) and Htrend[1] != 1 
+		down := na(Hup[1]) ? Hup : Hup[1]
+		arrowDown := down + Hatr
+	else
+		down := na(down[1]) ? minHighPrice : min(minHighPrice, down[1])
+	atrHigh := down + dev
+	atrLow := down - dev
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+// FILTER
+
+inSession(sess) => na(time(timeframe.period, sess + ":" + days)) == false
+
+buySP  = not supertrend or trend == 1
+sellSP = not supertrend or trend != 1
+
+buyHT  = not halftrend or Htrend == 0 
+sellHT = not halftrend or Htrend != 0 
+
+buyema  = not Fema or close > emaSmooth
+sellema = not Fema or close < emaSmooth
+
+buyFilter  = inSession(timezone) and buySP  and buyHT  and buyema 
+sellFilter = inSession(timezone) and sellSP and sellHT and sellema 
+//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+
+Stop_Loss(direction_1, direction_2, stopLossLong, stopLossShort, trailtrig, traildist, trailstep, max, min) =>
+    var float stopLoss = na
+    if strategy.position_size == 0 and newSeason
+        if buyFilter and direction_1 and long_p 
+            stopLoss := stopLossLong
+        else if sellFilter and direction_2 and short_p
+            stopLoss := stopLossShort
+        else
+            stopLoss := na
+    else if  strategy.position_size != 0 and trailing
+        trailtrig_pip = (trailtrig*10*syminfo.mintick)
+        traildist_pip = (traildist*10*syminfo.mintick)
+        trailstep_pip = (trailstep*10*syminfo.mintick)
+        First_Trig_A  = strategy.position_avg_price  + trailtrig_pip  
+        First_Stop_A  = First_Trig_A - traildist_pip
+        First_Trig_B  = strategy.position_avg_price  - trailtrig_pip 
+        First_Stop_B  = First_Trig_B + traildist_pip
+        if strategy.position_size > 0
+            if max < First_Trig_A
+                stopLoss := stopLoss[1]
+            else 
+                count_A = floor((max - First_Trig_A) / trailstep_pip)
+                stopLoss := First_Stop_A + (count_A * trailstep_pip)
+        else if strategy.position_size < 0
+            if min > First_Trig_B
+                stopLoss := stopLoss[1]
+            else 
+                count_B = floor((First_Trig_B - min) / trailstep_pip)
+                stopLoss := First_Stop_B - (count_B * trailstep_pip)
+        else
+            stopLoss := na
+    else
+        stopLoss := stopLoss[1]
+
+
+///////////////////////////////////////////////////////////////////////////////////// 
+
+direction_1 = close > buyPoint
+direction_2 = close < sellPoint
+
+max_close = max_x(close,strategy.position_size>0)
+min_close = min_x(close,strategy.position_size<0)
+stopLoss  = Stop_Loss(direction_1, direction_2, stopLossLong, stopLossShort, trailtrig, traildist, trailstep, max_close, min_close)
+
+// Determine take profit (default 10 pips/100 points above/below buy/sell point)
+var float takeProfitLong = na 
+if newSeason and strategy.position_size == 0 and buyFilter and direction_1 and long_p
+    takeProfitLong := buyPoint + (targetPips * 10 * syminfo.mintick)
+else if strategy.position_size > 0 
+    takeProfitLong := takeProfitLong[1]
+else
+    takeProfitLong := na
+
+var float takeProfitShort = na 
+if newSeason and strategy.position_size == 0 and sellFilter and direction_2 and short_p
+    takeProfitShort := sellPoint - (targetPips * 10 * syminfo.mintick)
+else if  strategy.position_size < 0
+    takeProfitShort := takeProfitShort[1]
+else
+    takeProfitShort := na
+////////////////////////////////////////////////////////////////////////////////
+
+var X_ = array.new_float(1)
+if low > high
+    array.set(X_,0,open)
+
+
+if newSeason and strategy.position_size == 0
+    if buyFilter and direction_1 and long_p
+        strategy.entry("Long",strategy.long, oca_name="x", oca_type=strategy.oca.cancel)
+        if long_a
+            alert(""+licenseID+",buy,"+tostring(symbol)+",sl="+tostring(stopPips_)+",tp="+tostring(targetPips_)+",trailtrig="+tostring(trailtrig_)+",traildist="+tostring(traildist_)+",trailstep="+tostring(trailstep_)+",risk="+tostring(risk)+", spread="+tostring(spread_)+"", alert.freq_once_per_bar_close)
+        else
+            array.clear(X_)
+    else if sellFilter and direction_2 and short_p
+        strategy.entry("Short", strategy.short,oca_name="x", oca_type=strategy.oca.cancel)
+        if short_a
+            alert(""+licenseID+",sell,"+tostring(symbol)+",sl="+tostring(stopPips_)+",tp="+tostring(targetPips_)+",trailtrig="+tostring(trailtrig_)+",traildist="+tostring(traildist_)+",trailstep="+tostring(trailstep_)+",risk="+tostring(risk)+", spread="+tostring(spread_)+"", alert.freq_once_per_bar_close)
+        else
+            array.clear(X_)
+    else
+        array.clear(X_)
+else
+    array.clear(X_)
+// Exit our trade if our stop loss or take profit is hit
+
+
+strategy.exit("Long Exit", "Long", stop=stopLoss,  limit=takeProfitLong)
+strategy.exit("Short Exit", "Short",stop=stopLoss, limit=takeProfitShort)
+
+
+
+// Draw data to the chart
+
+plot(stopLoss, color=color.orange, linewidth=2, style=plot.style_linebr, title="SL")
+plot(takeProfitLong, color=color.green, linewidth=2, style=plot.style_linebr,title="TP Long")
+plot(takeProfitShort, color=color.blue, linewidth=2,style=plot.style_linebr,title="TP Short")
+//plot(high_, color=color.green, linewidth=2, title="Daily High")
+//plot(low_, color=color.orange, linewidth=2, title="Daily Low")
+//plot(newSeason?1:0, color=color.purple, title="open position")
+//plot(stopLossLong, color=color.red, title="Long Stop Loss")
+//plot(takeProfitLong, color=color.green, title="Long Profit Target")
+//plot(sellPoint, color=color.purple, title="Sell Stop")
+//plot(stopLossShort, color=color.red, title="Short Stop Loss")
+//plot(takeProfitShort, color=color.green, title="Short Profit Target")
+
+//
