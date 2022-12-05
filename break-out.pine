@@ -1,5 +1,5 @@
 // @version=4
-// © MJK7
+// © leokari100
 
 strategy("Breakout", overlay=true, default_qty_value=1)
 
