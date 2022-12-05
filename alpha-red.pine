@@ -1,0 +1,1071 @@
+//@version=4
+
+strategy("ALPHA RED", overlay=true, initial_capital=1000)
+
+// INPUT    {
+
+var A_000 = "BACK TEST"
+
+time_ = input(false, "", input.bool,group=A_000) 
+start = input(timestamp("2022-01-01T00:00+00:00"),"STA",input.time,group=A_000)
+end   = input(timestamp("2022-03-01T00:00+00:00"),"END",input.time,group=A_000)
+
+inTime = time > start and time < end
+
+var A_00 = "                                 🌞   🌙   "
+
+DAYS = input(title="Days To Trade", defval="23456", group=A_00, tooltip="Which DAYS to trade this strategy on (Sunday=1,....,Saturday=7)")
+TIME = input(title="Timezone", type=input.session, defval="0200-1800", group=A_00, tooltip="Which TIME to search for strategy signals in")
+
+
+var A_01 = "        🔄                      🚨                ✏️"
+
+LnPo = input(true, "Long", input.bool,        inline=A_01, group=A_01)
+SrPo = input(true, "Short | ",input.bool, inline=A_01, group=A_01)
+LnAl = input(true, "BUY",  input.bool,        inline=A_01, group=A_01)
+SrAl = input(true, "SELL | ", input.bool,        inline=A_01, group=A_01)
+DRAW = input(true, "️DRAW" ,  input.bool,      inline=A_01, group=A_01)
+
+    //***STRATEGY  INPUT {
+
+var A_120 = " 🟣    Divergance"
+
+DIVR = input(true,   "",       input.bool,    inline="1", group=A_120)
+DVIC = input("RSI", "Indi",    input.string,  inline="1", group=A_120, options=["RSI", "CCI", "STO:K", "STO:D", "MACD:S", "MACD:M", "MACD:H"])
+LBL  = input(5,     " ⬅️",      input.integer, inline="1", group=A_120)
+LBR  = input(5,     "➡️",       input.integer, inline="1", group=A_120)
+RGUP = input(60,    "    Max", input.integer, inline="2", group=A_120)
+RGLW = input(5,     "Min",     input.integer, inline="2", group=A_120)
+BULL = input(false, "🐮  ",    input.bool,    inline="3", group=A_120)
+BEAR = input(false, "🐻  |  ️", input.bool,    inline="3", group=A_120)
+HBUL = input(true,  "☁️🐮  ",   input.bool,    inline="3", group=A_120)
+HBEA = input(true,  "☁️🐻"     ,input.bool,    inline="3", group=A_120)
+DLY  = true //input(false, "NotRep",input.bool,    inline="3", group=A_120)
+
+var A_111 = " 🟣    BREAKOUT"
+
+BROT = input(false, "",     input.bool,       inline="1", group=A_111)
+TIFR = input("30", "⏰ ",  input.resolution, inline="1", group=A_111)
+EDGE = input(3,    "Entr", input.integer,    inline="1", group=A_111)
+ 
+
+var A_02 = "🟣    MACD"
+
+S1   = input(false, "",    input.bool,    inline="1", group=A_02)
+FEM  = input(12, "Fast",   input.integer, inline="1", group=A_02)
+SEM  = input(26, "Slow",   input.integer, inline="1", group=A_02)
+SIG  = input(9,  "Sign", input.integer, inline="1", group=A_02)
+
+var A_06 = "🟣   Double EMA "
+
+S4   = input(false, "",     input.bool,    inline="1", group=A_06)
+EL4  = input(25,    "Fast", input.integer, inline="1", group=A_06)
+EL5  = input(75,    "Slow", input.integer, inline="1", group=A_06)
+
+var A_07 = "🟣   ICHIMOKU"
+
+S5   = input(false, "",       input.bool,   inline="1", group=A_07)
+Tk5  = input(9,     "Tenk", input.integer,  inline="1", group=A_07)
+Kj5  = input(26,    "Kiju",  input.integer, inline="1", group=A_07)
+// }
+
+    //***FILTER INPUT {
+
+
+var A_106 = "⚪    Double EMA "
+
+DBEA = input(false, "",     input.bool,    inline="1", group=A_106)
+EL_1 = input(180 ,  "Fast", input.integer, inline="1", group=A_106)
+EL_2 = input(365,   "Slow", input.integer, inline="1", group=A_106)
+
+var A_08 = "⚪    GAP"
+
+GPCT = input(false, "",            input.bool,    inline="1" , group=A_08)
+CONT = input(25,    "Dist",        input.integer, inline="1" , group=A_08)
+EMAG = input(false, "",            input.bool,    inline="2" , group=A_08)
+LAME = input(200,   "EMA",         input.integer, inline="2" , group=A_08)
+PIPG = input(10,    "+ -",         input.integer, inline="2" , group=A_08)
+CON2 = input(15,    "Dist",        input.integer, inline="2" , group=A_08)
+SPGA = input(false, "Seperate Gap",input.bool,    inline="3" , group=A_08)
+
+var A_09 = "⚪    TRIPLE EMA"
+
+ONE_ = input(false, "         ⏰        ",  input.bool,      inline="1", group=A_09)
+REH_ = input("5",   "⏰",                   input.resolution,inline="1", group=A_09)
+RHH_ = input("30",  "⏰",                   input.resolution,inline="1", group=A_09)   
+LEN_ = input(200,   "       ",               input.integer,   inline="2", group=A_09)
+LEH_ = input(200,   "    ",                  input.integer,   inline="2", group=A_09)
+LHH_ = input(200,   "   ",                   input.integer,   inline="2", group=A_09)
+ 
+
+var A_10  = "⚪    KIJUN  SEN"
+  
+_ONK   = input(false, "",   input.bool,       inline="1", group=A_10)
+_BPK   = input(26,    "",   input.integer,    inline="1", group=A_10)
+_RSK   = input("",   "⏰",  input.resolution, inline="1", group=A_10)
+_LBK   = input(20,    "⬅️",   input.integer,    inline="1", group=A_10)
+
+var A_11 = "⚪     ICHI  Cloud"
+
+ICCL = input(false, "",       input.bool,    inline="1", group=A_11)
+CP   = input(9,     "T",      input.integer, inline="1", group=A_11)
+BP   = input(26,    "K",      input.integer, inline="1", group=A_11)
+LS2P = input(52,    "Span B", input.integer, inline="1", group=A_11)
+DS   = 26 //input(26, "Displacement",input.integer,group=A_011) 
+
+var A_12 = "⚪      SUPER TREND"
+
+SPT  = input( false, "",        input.bool,    inline=A_12, group=A_12)
+APF  = input( 20,    "Period",  input.integer, inline=A_12, group=A_12)
+FacF = input( 5.0,   "Multi",   input.float,   inline=A_12, group=A_12,step=0.1)
+
+var A_13 = "⚪      HALF TRND"
+
+HFT  = input(false, "",          input.bool,       inline=A_13, group=A_13)
+AMP  = input(  2,   "Amplitude", input.integer,    inline=A_13, group=A_13)
+
+var A_14 = "⚪      EMA"
+
+Fema = input(false, "",       input.bool,       inline=A_14, group=A_14)
+EO   = input("EMA", "Option", input.string,     inline=A_14, group=A_14, options=["EMA", "DEMA", "TEMA"])
+Flen = input(  200, "Length", input.integer,    inline=A_14, group=A_14)
+
+//}
+
+    //***STOP LOSS INPUT {
+
+var A_15 = "📛 📛  STOP LOSS(PIPS)  "
+
+MSI  = input( 5,   "Min",    input.integer, inline="1", group=A_15)
+MSLI = input( 10,  "Max",    input.integer, inline="1", group=A_15)
+
+var A_16 = "📛 📛  TRAILING "
+
+TR   = input(true, "",     input.bool,    inline="2", group=A_16)
+TT   = input( 40,  "Trig", input.integer, inline="2",group=A_16)
+TD   = input( 20,  "Dist", input.integer, inline="2",group=A_16)
+TS   = input( 10,  "Step", input.integer, inline="2",group=A_16)
+//}
+
+    //***TOP PROFIT INPUT {
+var A_17 = "🟢   MANUAL "
+
+MANU = input( false, "",     input.bool,    inline="1", group=A_17)
+MUTP = input( 10,    "Amnt", input.integer, inline="1", group=A_17)
+
+var A_18 = "🟢   EMA"
+
+EMAS = input( false, "",         input.bool,    inline="1", group=A_18)
+ETL1 = input( 10,    "Fast",     input.integer, inline="1", group=A_18)
+ETL2 = input( 20,    "Slow",     input.integer, inline="1", group=A_18)
+EXTR = input( 10,    "    Pips", input.integer, inline="2", group=A_18)
+BEMA = input( 50,    "Cont",     input.integer, inline="2", group=A_18)
+
+var A_19 = "🟢   STOCHASTIC"
+
+STOS = input( false, "",        input.bool,    inline="1", group=A_19)
+STOL = input( 14,    "Len",     input.integer, inline="1", group=A_19)
+KLen = input( 1,     "K  ",     input.integer, inline="1", group=A_19)
+DLen = input( 3,     "      D", input.integer, inline="2", group=A_19)
+tens = input( 1,     "Tens",    input.integer, inline="2", group=A_19)
+STOB = input( 50,    "Cont",    input.integer, inline="2", group=A_19)
+
+var A_20 = "🟢   ICHIMOKU"
+
+ICHS = input( false, "",     input.bool,    inline="1", group=A_20)
+TNTP = input(  9,    "T",    input.integer, inline="1", group=A_20) //Conversion Line Length")
+KNTP = input( 26,    "K  ",  input.integer, inline="1", group=A_20) //"Base Line Length")
+LKBK = input( 4,     "   ⬅️", input.integer, inline="2", group=A_20)
+BICH = input( 25,    "Cont", input.integer, inline="2", group=A_20)
+//}
+
+
+    //***PINE CONNECTOR INPUT {
+var A_21 = "🟡   PINE CONNECTOR"
+
+ID   = input(""   , "  ID",      input.string, inline="2", group=A_21)
+MAN  = input(false, "Manual Symbol👉", input.bool,   inline="2", group=A_21)
+SYM  = input(""   , "",          input.string, inline="2", group=A_21)
+RISK = input(0.4  , " Risk",            input.float,  inline="3", group=A_21, step=0.1, minval=0.01)
+SP   = input(5    , "Sprd",          input.float,  inline="3", group=A_21, step=0.1, minval=0.1)
+TV   = input(2    , "TvDc",      input.integer,inline="4", group=A_21)
+MT   = input(2    , "MtDc",      input.integer,inline="4", group=A_21)
+
+//}
+
+SYMB = MAN ? SYM: syminfo.ticker
+
+    //}
+
+// FUNCTION {
+
+    // TIME { 
+
+inSession(sess) => na(time(timeframe.period, sess + ":" + DAYS)) == false
+
+// }
+
+    // FIRST CANDLE INFO  {
+
+first_candle_info(condition_1, condition_2, tenkan, kijun, lagSpan, DSP) =>
+    var int shart = na
+    var float C   = na
+    var float O   = na
+    var float H   = na
+    var float L   = na
+    var float A   = na
+    var float B   = na
+    lconversionLine_A = avg(lowest(tenkan), highest(tenkan)) 
+    baseLine_A = avg(lowest(kijun), highest(kijun))           
+    leadLine1_A = avg(lconversionLine_A, baseLine_A)   
+    leadLine2_A = avg(lowest(lagSpan), highest(lagSpan))  
+    spanAA = offset(leadLine1_A, DSP - 1)    
+    spanBA = offset(leadLine2_A, DSP - 1)
+    if condition_1 and ( strategy.position_size==0 or (strategy.position_size>0 and strategy.position_size[1]<0))
+        shart := 1
+    else if  condition_2 and ( strategy.position_size==0 or (strategy.position_size<0 and strategy.position_size[1]>0))
+        shart := 2
+    else if strategy.position_size != 0 and (condition_1 or condition_2)
+        shart := 0
+    else
+        shart := 0
+        
+    if shart != 0
+        C := close
+        O := open
+        H := high
+        L := low
+        A := spanAA
+        B := spanBA
+    [C,O,H,L,A,B]
+
+// }
+
+    // STOP LOSS  {
+
+
+StopLoss(direction_1, direction_2, bottom, climax, enter_price, enter_high, enter_low, spanA, spanB, minStop, maxStop, trailtrig, traildist, trailstep, max, min) =>
+    var float stop = na
+    candleGreen = enter_price - (1.5*(enter_high - enter_low))
+    candleRed   = enter_price + (1.5*(enter_high - enter_low))
+    minSlBuy    = enter_price - (minStop * 10 * syminfo.mintick)
+    maxSlBuy    = enter_price - (maxStop * 10 * syminfo.mintick)
+    minSlSell   = enter_price + (minStop * 10 * syminfo.mintick)
+    maxSlSell   = enter_price + (maxStop * 10 * syminfo.mintick)
+    inCloud     = spanA > spanB and enter_high - enter_low <  spanA - spanB and ((spanA >= enter_low and spanB <= enter_low) and (spanA >= enter_high and spanB <= enter_high))
+    touchCloud1 = spanA > spanB and enter_high - enter_low <  spanA - spanB and ((spanA >= enter_low and spanB <= enter_low) or  (spanA >= enter_high and spanB <= enter_high)) 
+    touchCloud2 = spanA > spanB and enter_high - enter_low >= spanA - spanB and ((spanA >= enter_low and spanA <= enter_high)or  (spanB >= enter_low and spanB <= enter_high))
+    inCloudr    = spanB > spanA and enter_high - enter_low <  spanB - spanA and ((spanB >= enter_low and spanA<= enter_low) and (spanB >= enter_high and spanA <= enter_high)) 
+    touchCloudr1= spanB > spanA and enter_high - enter_low <  spanB - spanA and ((spanB >= enter_low and spanA<= enter_low) or  (spanB >= enter_high and spanA <= enter_high))
+    touchCloudr2= spanB > spanA and enter_high - enter_low >= spanB - spanA and ((spanB >= enter_low and spanB<= enter_high)or  (spanA >= enter_low  and spanA <= enter_high))  
+    touchCloud = inCloud or touchCloud1 or touchCloud2 or inCloudr or touchCloudr1 or touchCloudr2
+    if strategy.position_size == 0
+        if direction_1 
+            if touchCloud 
+                stop := bottom<minSlBuy and bottom>maxSlBuy  ? bottom: bottom>=minSlBuy ? minSlBuy: maxSlBuy
+            else 
+                stop := candleGreen<minSlBuy and candleGreen>maxSlBuy ? candleGreen : candleGreen>=minSlBuy ? minSlBuy: maxSlBuy
+        else if direction_2
+            if touchCloud
+                stop := climax>minSlSell and climax<maxSlSell? climax :  climax<= minSlSell?  minSlSell: maxSlSell
+            else
+                stop := candleRed>minSlSell and candleRed<maxSlSell ? candleRed : candleRed<= minSlSell?  minSlSell: maxSlSell // ta akhare in khat mishe statick stop
+        else
+            stop := na
+    else if  strategy.position_size != 0 and TR
+        trailtrig_pip = (trailtrig*10*syminfo.mintick)
+        traildist_pip = (traildist*10*syminfo.mintick)
+        trailstep_pip = (trailstep*10*syminfo.mintick)
+        First_Trig_A  = enter_price  + trailtrig_pip  
+        First_Stop_A  = First_Trig_A - traildist_pip
+        First_Trig_B  = enter_price  - trailtrig_pip 
+        First_Stop_B  = First_Trig_B + traildist_pip
+        if strategy.position_size > 0
+            if max < First_Trig_A
+                stop := stop[1]
+            else 
+                count_A = floor((max - First_Trig_A) / trailstep_pip)
+                stop := First_Stop_A + (count_A * trailstep_pip)
+        else if strategy.position_size < 0
+            if min > First_Trig_B
+                stop := stop[1]
+            else 
+                count_B = floor((First_Trig_B - min) / trailstep_pip)
+                stop := First_Stop_B - (count_B * trailstep_pip)
+        else
+            stop := na
+    else
+        stop := stop[1]
+
+// }
+
+    // STATIC STOP LOSS {
+
+StopLoss_STATIC(direction_1, direction_2, bottom, climax, enter_price, enter_high, enter_low, spanA, spanB, minStop, maxStop) =>
+    var float stop = na
+    candleGreen = enter_price - (1.5*(enter_high - enter_low))
+    candleRed   = enter_price + (1.5*(enter_high - enter_low))
+    minSlBuy    = enter_price - (minStop * 10 * syminfo.mintick)
+    maxSlBuy    = enter_price - (maxStop * 10 * syminfo.mintick)
+    minSlSell   = enter_price + (minStop * 10 * syminfo.mintick)
+    maxSlSell   = enter_price + (maxStop * 10 * syminfo.mintick)
+    inCloud     = spanA > spanB and enter_high - enter_low <  spanA - spanB and ((spanA >= enter_low and spanB <= enter_low) and (spanA >= enter_high and spanB <= enter_high))
+    touchCloud1 = spanA > spanB and enter_high - enter_low <  spanA - spanB and ((spanA >= enter_low and spanB <= enter_low) or  (spanA >= enter_high and spanB <= enter_high)) 
+    touchCloud2 = spanA > spanB and enter_high - enter_low >= spanA - spanB and ((spanA >= enter_low and spanA <= enter_high)or  (spanB >= enter_low and spanB <= enter_high))
+    inCloudr    = spanB > spanA and enter_high - enter_low <  spanB - spanA and ((spanB >= enter_low and spanA<= enter_low) and (spanB >= enter_high and spanA <= enter_high)) 
+    touchCloudr1= spanB > spanA and enter_high - enter_low <  spanB - spanA and ((spanB >= enter_low and spanA<= enter_low) or  (spanB >= enter_high and spanA <= enter_high))
+    touchCloudr2= spanB > spanA and enter_high - enter_low >= spanB - spanA and ((spanB >= enter_low and spanB<= enter_high)or  (spanA >= enter_low  and spanA <= enter_high))  
+    touchCloud = inCloud or touchCloud1 or touchCloud2 or inCloudr or touchCloudr1 or touchCloudr2
+    if strategy.position_size == 0
+        if direction_1 
+            if touchCloud 
+                stop := bottom<minSlBuy and bottom>maxSlBuy  ? bottom: bottom>=minSlBuy ? minSlBuy: maxSlBuy
+            else 
+                stop := candleGreen<minSlBuy and candleGreen>maxSlBuy ? candleGreen : candleGreen>=minSlBuy ? minSlBuy: maxSlBuy
+        else if direction_2
+            if touchCloud
+                stop := climax>minSlSell and climax<maxSlSell? climax :  climax<= minSlSell?  minSlSell: maxSlSell
+            else
+                stop := candleRed>minSlSell and candleRed<maxSlSell ? candleRed : candleRed<= minSlSell?  minSlSell: maxSlSell // ta akhare in khat mishe statick stop
+        else
+            stop := na
+// }
+
+    // POSITION COUNTER {
+
+position_count(condition, count) =>
+    if barssince(condition) > count
+        true
+// }
+
+    // EMA CROSS {
+
+ema_cross(source, length_ema_A, length_ema_B) =>
+    crossover(ema(source,length_ema_A),ema(source,length_ema_B))
+
+// }
+
+    // MAX AND MIN  {
+
+max_x(x,condition) => 
+    var max = 0.0 
+    if condition 
+        if x > max 
+            max := x
+        else if x <= max 
+            max := max
+    else 
+        max:=0.0
+
+
+min_x(x,condition) => 
+    var min = 1000000.0 
+    if condition 
+        if x < min 
+            min := x
+        else if x >= min 
+            min := min
+    else 
+        min := 1000000.0
+
+// }
+
+    // FLAT LINE {
+
+FLAT_LINE(source,lookBack) =>
+    a=highest(source,lookBack)
+    b=lowest(source,lookBack)
+    if a==b
+        true
+
+// }
+
+    // ICHI {
+
+donchian(len) => avg(lowest(len), highest(len))
+
+// }
+
+    // CONVERT STOP LOSS TO PIP {
+
+priceToPip(direction_1, direction_2,enter,stop) =>
+    var float SLB = na
+    var float SLS = na
+    if direction_1  and ( strategy.position_size==0 or (strategy.position_size>0 and strategy.position_size[1]<0))
+        SLB  := (enter - stop) / (10 * syminfo.mintick)
+    else if direction_2 and ( strategy.position_size==0 or (strategy.position_size<0 and strategy.position_size[1]>0))
+        SLS := (stop - enter) / (10 * syminfo.mintick)
+    else
+        SLB := na
+        SLS:= na
+    [SLB,SLS]
+
+// }
+
+    // GAP COUNTER {
+
+positionGap(GPCT,EMAG,SPGA,upGap,dwGap,CONT,CON2)=>
+    var int  zoneGapCounter = 0
+    var int  gapCounter = 0
+    var bool counter = false
+    var bool zoneCounter = false
+    inZone  = close <= upGap and close >= dwGap and (high >= dwGap or low <= upGap)
+    if GPCT and strategy.position_size == 0
+        if EMAG and SPGA 
+            if inZone
+                zoneGapCounter := zoneGapCounter + 1
+            else
+                gapCounter := 500000
+        else if EMAG
+            if inZone
+                zoneGapCounter := zoneGapCounter + 1
+            else
+                gapCounter := gapCounter + 1
+        else
+            gapCounter := gapCounter + 1
+    else
+        zoneGapCounter := 0
+        gapCounter := 0
+    if zoneGapCounter > CON2 + 1
+        zoneCounter := true
+    else
+        zoneCounter := false
+    if gapCounter > CONT + 1
+        counter := true
+    else
+        counter := false
+    [zoneCounter,counter]
+
+//}
+
+    // EMA TREND LINE {
+emaTrend(LEN_, LEH_, LHH_, REH_, RHH_)=>
+    emaNow      = ema(close, LEN_)
+    emaHigh     = ema(close, LEH_)
+    closeHigh   = security(syminfo.tickerid, REH_, close[barstate.isconfirmed?0:1])
+    sEmaHigh    = security(syminfo.tickerid, REH_, emaHigh[barstate.isconfirmed?0:1],barmerge.gaps_off)
+    emaHigher   = ema(close, LHH_)
+    closeHigher = security(syminfo.tickerid, RHH_, close[barstate.isconfirmed?0:1])
+    sEmaHigher  = security(syminfo.tickerid, RHH_, emaHigher[barstate.isconfirmed?0:1],barmerge.gaps_off)
+    var int direction_ = na
+    if close > emaNow and closeHigh > sEmaHigh and closeHigher > sEmaHigher
+        direction_ := 1
+    else if close < emaNow and closeHigh < sEmaHigh and closeHigher < sEmaHigher
+        direction_ := -1
+    else 
+        direction_ := na
+    [direction_,emaNow,closeHigh,sEmaHigh,closeHigher,sEmaHigher]     
+//}
+
+    // DIVERGANCE RANGE {
+_inRange(cond) =>
+	bars = barssince(cond == true)
+	RGLW <= bars and bars <= RGUP
+//}
+
+// }
+
+// SIGNAL'S INDICATORS {
+
+    // DIVERGANCE {
+
+divRSI = rsi(close,14)
+divCCI = cci(hlc3,20)
+divStK = stoch(close,high,low,14)
+divStD = sma(divStK,3)
+[divMacdLine, divSignalLine, divHisto] = macd(close, 12, 26, 9)
+
+var float osc = na
+if DVIC == "MACD:S"
+    osc := divSignalLine
+else if DVIC == "MACD:M"
+    osc := divMacdLine
+else if DVIC == "MACD:H"
+    osc := divHisto
+else if DVIC == "RSI"
+    osc := divRSI
+else if DVIC == "CCI"
+    osc := divCCI
+else if DVIC == "STO:K"
+    osc := divStK
+else if DVIC == "STO:D"
+    osc := divStD
+
+repaint = (not(DLY) or barstate.isconfirmed or barstate.ishistory)
+
+plFound = na(pivotlow(osc, LBL, LBR)) ? false : true
+phFound = na(pivothigh(osc, LBL, LBR))? false : true
+
+// Regular Bullish
+
+oscHL = osc[LBR] > valuewhen(plFound, osc[LBR], 1) and _inRange(plFound[1])
+priceLL = low[LBR] < valuewhen(plFound, low[LBR], 1)
+bullCond = BULL and priceLL and oscHL and plFound and repaint
+
+// Hidden Bullish
+
+oscLL = osc[LBR] < valuewhen(plFound, osc[LBR], 1) and _inRange(plFound[1])
+priceHL = low[LBR] > valuewhen(plFound, low[LBR], 1)
+hiddenBullCond = HBUL and priceHL and oscLL and plFound and repaint
+
+// Regular Bearish
+
+oscLH = osc[LBR] < valuewhen(phFound, osc[LBR], 1) and _inRange(phFound[1])
+priceHH = high[LBR] > valuewhen(phFound, high[LBR], 1)
+bearCond = BEAR and priceHH and oscLH and phFound and repaint
+
+// Hidden Bearish
+
+oscHH = osc[LBR] > valuewhen(phFound, osc[LBR], 1) and _inRange(phFound[1])
+priceLH = high[LBR] < valuewhen(phFound, high[LBR], 1)
+hiddenBearCond = HBEA and priceLH and oscHH and phFound and repaint
+
+var int diverg = na 
+if bullCond
+    diverg := 2
+else if hiddenBullCond
+    diverg := 1
+else if bearCond
+    diverg := -2
+else if hiddenBearCond
+    diverg := -1
+else
+    diverg := na
+//}
+ 
+    // BREAKOUT {
+// Get highs and lows
+newSeason = change(time(TIFR))
+
+max_ = max_x(high,newSeason==0)
+min_ = min_x(low, newSeason==0)
+
+
+var low_  = 0.0
+var high_ = 0.0
+if newSeason != 0
+    high_ := max_[1]
+    low_  := min_[1]
+
+// Determine buy & sell point (default 3 pips/30 points above/below high/low)
+buyPoint  = high_ + (EDGE * 10 * syminfo.mintick)
+sellPoint = low_ - (EDGE * 10 * syminfo.mintick)
+
+// Determine stop loss (default 5 pips/50 points above/below buy/sell point)
+stopLossLong  = buyPoint - (MSI * 10 * syminfo.mintick)
+stopLossShort = sellPoint + (MSI * 10 * syminfo.mintick)      
+//}
+
+    // MACD {
+
+[macdLine, signalLine, histLine] = macd(close, FEM, SEM, SIG)
+
+long_macd  = crossunder(signalLine, macdLine) and signalLine < 0 
+short_macd = crossover(signalLine, macdLine) and signalLine > 0
+
+// }
+
+    // DOUBLE EMA {
+        
+UP_CROSS_EMA   = ema_cross(close, EL4, EL5)
+DOWN_CROSS_EMA = ema_cross(close, EL5, EL4)
+        
+//}
+
+    // ICHIMOKU CROSS {
+    
+Tenkan = donchian(Tk5) 
+Kijun  = donchian(Kj5)  
+long_ichi  = crossover(Tenkan,Kijun)
+short_ichi = crossunder(Tenkan,Kijun)
+
+//}
+
+// }
+
+// FILTER'S INDACATORS {
+
+    // DOUBLE EMA {
+
+doubleEmaBuy  = ema(close,EL_1) > ema(close,EL_2)
+doubleEmaSell = ema(close,EL_1) < ema(close,EL_2)
+
+//}
+
+
+
+    // KIJUN {
+_baseLineK = donchian(_BPK)
+_higherK= security(syminfo.tickerid, _RSK , _baseLineK[barstate.isconfirmed?0:1],barmerge.gaps_off)
+_flatK = FLAT_LINE(_higherK,_LBK) // agar true bashe yani moamele nakoneh
+var int FLAT = 0
+if _flatK
+    FLAT := -1
+else
+    FLAT := 1
+//}
+
+    // 3 EMA TREND LINE {
+        
+[direction_,emaNow,closeHigh,sEmaHigh,closeHigher,sEmaHigher] = emaTrend(LEN_, LEH_, LHH_, REH_, RHH_)  
+
+//}
+
+
+    // GAP COUNTER {
+
+emaGap = ema(close,LAME)
+upGap = emaGap + (syminfo.mintick*10*PIPG)
+dwGap = emaGap - (syminfo.mintick*10*PIPG)
+
+[zoneCounter,counter] = positionGap(GPCT,EMAG,SPGA,upGap,dwGap,CONT,CON2)
+
+//}
+
+    // ICHIMUKO CLOUDE {
+
+CL = donchian(CP)
+baseLine_ = donchian(BP)
+leadLine1 = avg(CL, baseLine_)
+leadLine2 = donchian(LS2P)
+spanA = offset(leadLine1,DS - 1)
+spanB = offset(leadLine2,DS - 1)
+
+
+var int ichi = 0
+if close > spanA and close > spanB
+    ichi := 1
+else if close < spanA and close < spanB
+    ichi := -1
+else
+    ichi := 0
+
+//}
+
+    // EMA {
+
+emaSmooth = ema(close, Flen)
+
+ema_4 = ema(emaSmooth, Flen)
+ema_5 = ema(ema_4, Flen)
+
+dema = 2 * emaSmooth - ema_4
+tema = 3 * (emaSmooth - ema_4) + ema_5
+
+// }
+
+    // SUPER TREND {
+[supertrend_F, direction_F] = supertrend(FacF, APF)
+// }
+
+    // HALF TREND {
+
+var int Htrend = 0
+var int nextTrend = 0
+var float maxLowPrice = nz(low[1], low)
+var float minHighPrice = nz(high[1], high)
+var float Hup = 0.0
+var float down = 0.0
+float atrHigh = 0.0
+float atrLow = 0.0
+float arrowHup = na
+float arrowDown = na
+Hatr = atr(100) / 2
+dev = 2 * Hatr // jay 2 CH_Dev bezar
+highPrice = high[abs(highestbars(AMP))]
+lowPrice = low[abs(lowestbars(AMP))]
+highma = sma(high, AMP)
+lowma = sma(low, AMP)
+if nextTrend == 1
+	maxLowPrice := max(lowPrice, maxLowPrice)
+
+	if highma < maxLowPrice and close < nz(low[1], low)
+		Htrend := 1
+		nextTrend := 0
+		minHighPrice := highPrice
+else
+	minHighPrice := min(highPrice, minHighPrice)
+
+	if lowma > minHighPrice and close > nz(high[1], high)
+		Htrend := 0
+		nextTrend := 1
+		maxLowPrice := lowPrice
+
+if Htrend == 0
+	if not na(Htrend[1]) and Htrend[1] != 0
+		Hup := na(down[1]) ? down : down[1]
+		arrowHup := Hup - Hatr
+	else
+		Hup := na(Hup[1]) ? maxLowPrice : max(maxLowPrice, Hup[1])
+	atrHigh := Hup + dev
+	atrLow := Hup - dev
+else
+	if not na(Htrend[1]) and Htrend[1] != 1 
+		down := na(Hup[1]) ? Hup : Hup[1]
+		arrowDown := down + Hatr
+	else
+		down := na(down[1]) ? minHighPrice : min(minHighPrice, down[1])
+	atrHigh := down + dev
+	atrLow := down - dev
+// }
+
+//}
+
+// FILTER {
+
+timeFilter = not time_ or inTime
+
+gapCount = not (GPCT or EMAG or SPGA) or (counter or zoneCounter)
+
+_kijun = not _ONK or FLAT == 1
+
+EMA_BTL = not ONE_ or direction_ == 1
+EMA_STL = not ONE_ or direction_ == -1
+
+buyIC  = not ICCL or ichi == 1
+sellIC = not ICCL or ichi == -1
+ 
+buySP  = not SPT or direction_F == -1
+sellSP = not SPT or direction_F == 1
+
+buyHT  = not HFT or Htrend == 0 
+sellHT = not HFT or Htrend != 0 
+
+buyema  = not Fema or   (EO == "EMA"? close > emaSmooth : EO =="DEMA"? close > dema: EO =="TEMA"? close > tema:na)
+sellema = not Fema or   (EO == "EMA"? close < emaSmooth : EO =="DEMA"? close < dema: EO =="TEMA"? close < tema:na)
+
+buyDoubleEma  = not DBEA or doubleEmaBuy
+sellDoubleEma = not DBEA or doubleEmaSell
+
+
+buyFilter  = inSession(TIME) and buySP  and buyHT  and buyema  and gapCount and buyIC  and _kijun and EMA_BTL and buyDoubleEma and timeFilter
+sellFilter = inSession(TIME) and sellSP and sellHT and sellema and gapCount and sellIC and _kijun and EMA_STL and sellDoubleEma and timeFilter
+
+ // }
+ 
+// STRATEGYS {
+
+diverLong  = not DIVR or (buyFilter  and (diverg == 1 or diverg == 2))
+diverShort = not DIVR or (sellFilter and (diverg ==-1 or diverg ==-2))
+
+breakoutLong  = not BROT or (buyFilter  and newSeason and close > buyPoint)
+breakoutShort = not BROT or (sellFilter and newSeason and close < sellPoint)
+
+macdLong  = not S1 or (buyFilter  and long_macd  and close > open)
+macdShort = not S1 or (sellFilter and short_macd and close < open)
+
+doubleEmaLong  = not S4 or (buyFilter  and UP_CROSS_EMA)
+doubleEmaShort = not S4 or (sellFilter and DOWN_CROSS_EMA)
+
+ichiLong  = not S5 or (buyFilter  and long_ichi)
+ichiShort = not S5 or (sellFilter and short_ichi)
+
+buy = macdLong  and doubleEmaLong  and ichiLong  and breakoutLong  and diverLong
+sell= macdShort and doubleEmaShort and ichiShort and breakoutShort and diverShort
+
+//}
+
+// FIRST CANDLE INFO {
+    
+[C,O,H,L,A,B] = first_candle_info(buy, sell, 9, 26, 52, 26)
+//}
+
+// STOP LOSS {
+
+    // ZIG ZAG {
+lb = 2 // bad agar khasti in ro bekon input
+rb = 2 // bad agar khasti in ro bekon input
+var meghdar_sup_res_01 = array.new_float(1)
+var meghdar_sup_01 = array.new_float(1)
+var meghdar_res_01 = array.new_float(1)
+mb = lb + rb + 1
+ph = iff(not na(high[mb]), iff(highestbars(high, mb) == -lb, high[lb], na), na)  // Pivot High
+pl = iff(not na(low[mb]), iff(lowestbars(low, mb) == -lb, low[lb], na), na)  // Pivot Low
+hl = int(na)
+hl := iff(ph, 1, iff(pl, -1, na))  // Trend direction
+zz = float(na)
+zz := iff(ph, ph, iff(pl, pl, na))  // similar to zigzag but may have multiple highs/lows
+zz := iff(pl and hl == -1 and valuewhen(hl, hl, 1) == -1 and pl > valuewhen(zz, zz, 1), na, zz)
+zz := iff(ph and hl == 1 and valuewhen(hl, hl, 1) == 1 and ph < valuewhen(zz, zz, 1), na, zz)
+hl := iff(hl == -1 and valuewhen(hl, hl, 1) == 1 and zz > valuewhen(zz, zz, 1), na, hl)
+hl := iff(hl == 1 and valuewhen(hl, hl, 1) == -1 and zz < valuewhen(zz, zz, 1), na, hl)
+zz := iff(na(hl), na, zz)
+findprevious() =>  // finds previous three points (b, c, d, e)
+    ehl = iff(hl == 1, -1, 1)
+    loc1 = 0.0
+    loc2 = 0.0
+    loc3 = 0.0
+    loc4 = 0.0
+    xx = 0
+    for x = 1 to 1000 by 1
+        if hl[x] == ehl and not na(zz[x])
+            loc1 := zz[x]
+            xx := x + 1
+            break
+    ehl := hl
+    for x = xx to 1000 by 1
+        if hl[x] == ehl and not na(zz[x])
+            loc2 := zz[x]
+            xx := x + 1
+            break
+    ehl := iff(hl == 1, -1, 1)
+    for x = xx to 1000 by 1
+        if hl[x] == ehl and not na(zz[x])
+            loc3 := zz[x]
+            xx := x + 1
+            break
+    ehl := hl
+    for x = xx to 1000 by 1
+        if hl[x] == ehl and not na(zz[x])
+            loc4 := zz[x]
+            break
+    [loc1, loc2, loc3, loc4]
+
+a = float(na)
+b = float(na)
+c = float(na)
+d = float(na)
+e = float(na)
+if not na(hl)
+    [loc1, loc2, loc3, loc4] = findprevious()
+    a := zz
+    b := loc1
+    c := loc2
+    d := loc3
+    e := loc4
+    e
+
+_hh = zz and a > b and a > c and c > b and c > d
+_ll = zz and a < b and a < c and c < b and c < d
+_hl = zz and 
+   (a >= c and b > c and b > d and d > c and d > e or a < b and a > c and b < d)
+_lh = zz and 
+   (a <= c and b < c and b < d and d < c and d < e or a > b and a < c and b > d)
+
+res = float(na)
+sup = float(na)
+res := iff(_lh, zz, res[1])
+sup := iff(_hl, zz, sup[1])
+
+array.set(meghdar_sup_res_01, 0 , res)
+array.set(meghdar_res_01, 0 , res)
+
+array.set(meghdar_sup_res_01,0 , sup)
+array.set(meghdar_sup_01, 0 , sup)
+
+Trend = int(na)
+Trend := iff(close > res, 1, iff(close < sup, -1, nz(Trend[1])))
+
+res := iff(Trend == 1 and _hh or Trend == -1 and _lh, zz, res)
+sup := iff(Trend == 1 and _hl or Trend == -1 and _ll, zz, sup)
+
+kaf=array.get(meghdar_sup_01,0)
+saghf=array.get(meghdar_res_01,0)
+//}
+
+    // CALCULATE STOP LOSS {
+max_close = max_x(close,strategy.position_size>0)
+min_close = min_x(close,strategy.position_size<0)
+
+stop_D = StopLoss(buy, sell, kaf, saghf, C, H, L, A, B, MSI, MSLI, TT, TD, TS, max_close, min_close)
+stop_S = StopLoss_STATIC(buy, sell, kaf, saghf, C, H, L, A, B, MSI, MSLI)
+ 
+[SLB,SLS] = priceToPip(buy, sell, C, stop_S)
+//}
+
+//}
+
+// DECIMAL CONVERT {
+
+var int dispute = na
+var float Factor = na
+if TV == MT
+    Factor := 1
+else if TV > MT
+    dispute := TV - MT
+    Factor := 1/pow(10,dispute)
+else if TV < MT
+    dispute := MT - TV 
+    Factor := pow(10,dispute)
+else
+    dispute := na
+    Factor := na
+
+MUTP_ = MUTP* Factor
+TT_   = TT  * Factor
+TD_   = TD  * Factor
+TS_   = TS  * Factor
+SP_   = SP  * Factor
+SLB_  = SLB * Factor
+SLS_  = SLS * Factor
+//}
+
+// CALCULATE TOP PROFIT {
+
+counter_EMA    = position_count(strategy.position_size==0, BEMA)
+counter_ichi   = position_count(strategy.position_size==0, BICH)
+counter_STOCH  = position_count(strategy.position_size==0, STOB)
+up_cross   = ema_cross(close, ETL2, ETL1) 
+down_cross = ema_cross(close, ETL1, ETL2)
+base_ema   = ema(close,ETL1)
+
+STO = stoch(close , high, low, STOL) 
+K   = sma (STO,KLen)
+D   = sma (K,  DLen)
+max_D = max_x(D,strategy.position_size>0)
+min_D = min_x(D,strategy.position_size<0)
+
+conversionLine = donchian(TNTP)  // Tenkan
+baseLine = donchian(KNTP)         // Kijun
+flat_baseLine= FLAT_LINE(baseLine,LKBK)
+
+var X_ = array.new_float(1)
+if low > high
+    array.set(X_,0,open)
+
+var float TP_Buy  = na
+var float TP_Sell = na
+var float TP_B    = na
+var float TP_S    = na
+
+if MANU and LnPo 
+    if buy and strategy.position_size == 0
+        TP_Buy := C + (MUTP*10*syminfo.mintick)
+        array.clear(X_)
+    else if sell and strategy.position_size == 0
+        TP_Sell:= C - (MUTP*10*syminfo.mintick)
+        array.clear(X_)
+    else if strategy.position_size != 0
+        TP_Buy := TP_Buy[1]
+        TP_Sell:= TP_Sell[1]
+        array.clear(X_)
+    else
+        TP_Buy := na
+        TP_Sell:= na
+        array.clear(X_)     
+else if strategy.position_size != 0 and EMAS and counter_EMA
+    if strategy.position_size > 0 and up_cross 
+        TP_Buy  := base_ema + (EXTR*10*syminfo.mintick)
+        TP_B := ((TP_Buy - C ) / (10 * syminfo.mintick)) * Factor
+        if LnAl
+            alert(""+ID+",newsltplong,"+tostring(SYMB)+",tp="+tostring(TP_B)+"", alert.freq_once_per_bar)
+    if strategy.position_size < 0 and down_cross 
+        TP_Sell := base_ema - (EXTR*10*syminfo.mintick)
+        TP_S  := ((C - TP_Sell) / (10 * syminfo.mintick)) * Factor
+        if SrAl
+            alert(""+ID+",newsltpshort,"+tostring(SYMB)+",tp="+tostring(TP_S)+"", alert.freq_once_per_bar)
+else if strategy.position_size != 0 and STOS and counter_STOCH
+    level_D = floor(D / 10)
+    if strategy.position_size > 0 
+        max = floor(max_D / 10)
+        if max - level_D >= tens 
+            strategy.close("Long")
+            if LnAl
+                alert(""+ID+",closelong,"+tostring(SYMB)+"", alert.freq_once_per_bar)
+    else if strategy.position_size < 0 
+        min = floor(min_D / 10)
+        if level_D - min >= tens
+            strategy.close("Short")
+            if  SrAl
+                alert(""+ID+",closeshort,"+tostring(SYMB)+"", alert.freq_once_per_bar)
+    else    
+        TP_Buy := na
+        TP_Sell:= na
+        array.clear(X_)
+else if strategy.position_size != 0 and ICHS and counter_ichi
+    if strategy.position_size > 0 and flat_baseLine  and open < conversionLine and close < conversionLine
+        strategy.close("Long")
+        if LnAl
+            alert(""+ID+",closelong,"+tostring(SYMB)+"", alert.freq_once_per_bar)
+    else if strategy.position_size < 0 and flat_baseLine and open > conversionLine and close > conversionLine
+        strategy.close("Short")
+        if SrAl 
+            alert(""+ID+",closeshort,"+tostring(SYMB)+"", alert.freq_once_per_bar)
+    else 
+        TP_Buy := na
+        TP_Sell:= na
+        array.clear(X_)
+else
+    TP_Buy  := na
+    TP_Sell := na
+    array.clear(X_)
+//}
+
+// POSITION {
+
+if strategy.position_size == 0
+    if buy and LnPo
+        strategy.entry(id="Long", long=strategy.long, when=buy, oca_name="x", oca_type=strategy.oca.cancel)
+        if LnAl
+            if TR
+                if MANU
+                    alert(""+ID+",buy,"+tostring(SYMB)+",sl="+tostring(SLB_)+",tp="+tostring(MUTP_)+",trailtrig="+tostring(TT_)+",traildist="+tostring(TD_)+",trailstep="+tostring(TS_)+",risk="+tostring(RISK)+", spread="+tostring(SP_)+"", alert.freq_once_per_bar_close)
+                else
+                    alert(""+ID+",buy,"+tostring(SYMB)+",sl="+tostring(SLB_)+",trailtrig="+tostring(TT_)+",traildist="+tostring(TD_)+",trailstep="+tostring(TS_)+",risk="+tostring(RISK)+", spread="+tostring(SP_)+"", alert.freq_once_per_bar_close)
+            else
+                if MANU
+                    alert(""+ID+",buy,"+tostring(SYMB)+",sl="+tostring(SLB_)+",tp="+tostring(MUTP_)+",risk="+tostring(RISK)+", spread="+tostring(SP_)+"", alert.freq_once_per_bar_close)
+                else
+                    alert(""+ID+",buy,"+tostring(SYMB)+",sl="+tostring(SLB_)+",risk="+tostring(RISK)+", spread="+tostring(SP_)+"", alert.freq_once_per_bar_close) 
+    if sell and SrPo
+        strategy.entry(id="Short", long=strategy.short, when=sell, oca_name="x", oca_type=strategy.oca.cancel)
+        if SrAl
+            if TR
+                if MANU
+                    alert(""+ID+",sell,"+tostring(SYMB)+",sl="+tostring(SLS_)+",tp="+tostring(MUTP_)+",trailtrig="+tostring(TT_)+",traildist="+tostring(TD_)+",trailstep="+tostring(TS_)+",risk="+tostring(RISK)+", spread="+tostring(SP_)+"", alert.freq_once_per_bar_close)
+                else
+                    alert(""+ID+",sell,"+tostring(SYMB)+",sl="+tostring(SLS_)+",trailtrig="+tostring(TT_)+",traildist="+tostring(TD_)+",trailstep="+tostring(TS_)+",risk="+tostring(RISK)+", spread="+tostring(SP_)+"", alert.freq_once_per_bar_close)
+            else
+                if MANU
+                    alert(""+ID+",sell,"+tostring(SYMB)+",sl="+tostring(SLS_)+",tp="+tostring(MUTP_)+",risk="+tostring(RISK)+", spread="+tostring(SP_)+"", alert.freq_once_per_bar_close)
+                else
+                    alert(""+ID+",sell,"+tostring(SYMB)+",sl="+tostring(SLS_)+",risk="+tostring(RISK)+", spread="+tostring(SP_)+"", alert.freq_once_per_bar_close)
+
+strategy.exit(id="Long Exit",  from_entry="Long",  stop=stop_D, limit=TP_Buy ,  when=strategy.position_size > 0)
+strategy.exit(id="Short Exit", from_entry="Short", stop=stop_D, limit=TP_Sell , when=strategy.position_size < 0)
+//}
+
+// DRAWINGS {
+
+plot(stop_D,  title="STOP LOSS",   color=color.orange,  style=plot.style_linebr,linewidth=2)
+plot(TP_Buy , title="TP BUY",      color=color.green,   style=plot.style_linebr,linewidth=2)
+plot(TP_Sell, title="TP SELL",     color=color.blue,    style=plot.style_linebr,linewidth=2)
+
+plot(S4 and DRAW?ema(close,EL4):na, title="*EMA Strategy Fast", color=color.rgb(3,255,244), style=plot.style_line  , linewidth=1)
+plot(S4 and DRAW?ema(close,EL5):na, title="*EMA Strategy Slow", color=color.rgb(255,189,0), style=plot.style_line  , linewidth=1)
+
+plot(S5 and DRAW?Tenkan:na, title="Tenkan/Signal ", color=color.rgb(5,220,199), style=plot.style_line  , linewidth=1)
+plot(S5 and DRAW?Kijun:na, title="Kijun/Signal", color=color.rgb(235,255,9), style=plot.style_line  , linewidth=1)
+
+fill(plot(EMAG and DRAW?upGap:na,color= color.rgb(241,247,54,90)), plot(EMAG and DRAW?dwGap:na,color= color.rgb(241,247,54,90)),color= color.rgb(241,247,54,96), title="GAP ZOON")
+
+plot(ONE_ and DRAW?emaNow:na,"EMA (H)",color=close>emaNow ? color.green : close < emaNow ? color.red : color.white)
+plot(ONE_ and DRAW?sEmaHigh:na,"EMA (HT)",color=closeHigh>sEmaHigh ? color.green : closeHigh < sEmaHigh ? color.red : color.white)
+plot(ONE_ and DRAW?sEmaHigher:na,"EMA (HTF)",color=closeHigher>sEmaHigher ? color.green : close < sEmaHigher ? color.red : color.white)
+
+plot(_ONK and DRAW? _higherK:na, color=color.rgb(28,255,58))
+
+plot(DBEA and DRAW?ema(close,EL_1):na, title="EMA Filter Fast", color=color.rgb(170,150,120), style=plot.style_line  , linewidth=1)
+plot(DBEA and DRAW?ema(close,EL_2):na, title="EMA Filter Slow", color=color.rgb(140,90,120), style=plot.style_line  , linewidth=1)
+
+p1 = plot(ICCL and DRAW?leadLine1:na, offset = DS - 1, color=#A5D6A7,
+     title="Leading Span A")
+p2 = plot(ICCL and DRAW?leadLine2:na, offset = DS - 1, color=#EF9A9A,
+	 title="Leading Span B")
+fill(p1, p2, color = leadLine1 > leadLine2 ? color.rgb(67, 160, 71, 90) : color.rgb(244, 67, 54, 90))
+
+plot(SPT and direction_F<0 and DRAW?supertrend_F:na, title="*Super Trend UP/Filter", color=color.rgb(0,255,0), style=plot.style_linebr  , linewidth=1)
+plot(SPT and direction_F>0 and DRAW?supertrend_F:na, title="*Super Trend DW/Filter", color=color.rgb(255,0,0), style=plot.style_linebr  , linewidth=1)
+
+ht = Htrend == 0 and HFT and DRAW? Hup : Htrend !=0 and HFT and DRAW ? down : na
+var color buyColor = color.blue
+var color sellColor = color.red
+htColor = Htrend == 0 and HFT and DRAW? buyColor : Htrend != 0 and HFT and DRAW? sellColor:na
+plot(ht, title="HalfTrend", linewidth=2, color=htColor)
+
+plot(Fema and EO=="EMA" and DRAW? emaSmooth :na, title="EMA Filter", color=color.rgb(162,35,235), style=plot.style_line  , linewidth=1)
+plot(Fema and EO=="DEMA"and DRAW? dema:na, title="DEMA Filter", color=color.rgb(162,35,235), style=plot.style_line  , linewidth=1)
+plot(Fema and EO=="TEMA"and DRAW? tema:na, title="TEMA Filter", color=color.rgb(162,35,235), style=plot.style_line  , linewidth=1)
+
+//} 
+
