@@ -1,6 +1,6 @@
 //@version=4
 
-// © MJK7
+// © leokari100
 
 strategy("Optimus", shorttitle="Optimus",initial_capital=1000, overlay=true)
 
