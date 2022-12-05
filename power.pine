@@ -1,0 +1,172 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © leokari100
+
+//@version=4
+strategy("Power", overlay=true)
+
+
+Index       = input(title="Index", type=input.float, minval=1.0, step=0.5, defval=2.0)
+minSlIndex  = input(title="Min Stop Loss", type=input.float, minval=1.0, step=0.5, defval=5.0 , group="Stop Loss")
+maxSlIndex  = input(title="Max Stop Loss", type=input.float, minval=2.0, step=0.5, defval=20.0 , group="Stop Loss")
+
+// super trend
+Periods = input(title="ATR Period", type=input.integer, defval=10)
+src = input(hl2, title="Source")
+Multiplier = input(title="ATR Multiplier", type=input.float, step=0.1, defval=5.0)
+changeATR= input(title="Change ATR Calculation Method ?", type=input.bool, defval=true)
+showsignals = input(title="Show Buy/Sell Signals ?", type=input.bool, defval=true)
+highlighting = input(title="Highlighter On/Off ?", type=input.bool, defval=true)
+atr3 = sma(tr, Periods)
+atr= changeATR ? atr(Periods) : atr3
+u1p=src-(Multiplier*atr)
+up1 = nz(u1p[1],u1p)
+u1p := close[1] > up1 ? max(u1p,up1) : u1p
+dn=src+(Multiplier*atr)
+dn1 = nz(dn[1], dn)
+dn := close[1] < dn1 ? min(dn, dn1) : dn
+trend1 = 1
+trend1 := nz(trend1[1], trend1)
+trend1 := trend1 == -1 and close > dn1 ? 1 : trend1 == 1 and close < up1 ? -1 : trend1
+
+// BJ
+
+    ///T3 MA5
+
+aLength         = input(38, minval=1, group="T3 MA Lengths")
+AxPrice         = close
+axe1            = ema(AxPrice, aLength)
+axe2            = ema(axe1, aLength)
+axe3            = ema(axe2, aLength)
+axe4            = ema(axe3, aLength)
+axe5            = ema(axe4, aLength)
+axe6            = ema(axe5, aLength)
+ab              = 0.7
+ac1             = -ab*ab*ab
+ac2             = 3*ab*ab+3*ab*ab*ab
+ac3             = -6*ab*ab-3*ab-3*ab*ab*ab
+ac4             = 1+3*ab+ab*ab*ab+3*ab*ab
+anT3Average     = ac1 * axe6 + ac2 * axe5 + ac3 * axe4 + ac4 * axe3
+colOne          = anT3Average > anT3Average[1] 
+colTwo          = anT3Average < anT3Average[1] 
+color2          = colOne ? #64b5f6 : colTwo ? #ef5350 : na
+p2              = plot(anT3Average, color=color.red, title="T3 Fast")
+
+    ///T3 MA8
+
+Length          = input(17, minval=1, group="T3 MA Lengths")
+xPrice          = close
+xe1             = ema(xPrice, Length)
+xe2             = ema(xe1, Length)
+xe3             = ema(xe2, Length)
+xe4             = ema(xe3, Length)
+xe5             = ema(xe4, Length)
+xe6             = ema(xe5, Length)
+b               = 0.7
+c1              = -b*b*b
+c2              = 3*b*b+3*b*b*b
+c3              = -6*b*b-3*b-3*b*b*b
+c4              = 1+3*b+b*b*b+3*b*b
+nT3Average      = c1 * xe6 + c2 * xe5 + c3 * xe4 + c4 * xe3
+upCol           = nT3Average > nT3Average[1] 
+downCol         = nT3Average < nT3Average[1]
+myColor         = upCol ? #64b5f6 : downCol ? #ef5350 : na
+p1              = plot(nT3Average, color=color.blue, title="T3 Slow")
+revbar          = cross(close, nT3Average)
+trendbar        = cross(nT3Average, anT3Average)
+revup           = crossover(close, nT3Average)
+revdwn          = crossunder(close, nT3Average)
+
+////////////////////////////////////// HIGHER EMA
+
+res = input(title="EMA Timeframe", type=input.resolution, defval="60")
+len = input(title="EMA Length", type=input.integer, defval=200)
+
+ema = ema(close, len)
+emaSmooth = security(syminfo.tickerid, res, ema, barmerge.gaps_on, barmerge.lookahead_off)
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+buy  = trend1==1 and crossover (nT3Average,anT3Average) //and close>emaSmooth
+sell = trend1!=1 and crossunder(nT3Average,anT3Average) //and close<emaSmooth
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+var meghdar_01=array.new_float(4)
+if strategy.position_size == 0 and (buy or sell)
+    array.set(meghdar_01,0,open)
+    array.set(meghdar_01,1,nT3Average)
+    array.set(meghdar_01,2,anT3Average)
+    array.set(meghdar_01,3,close)
+else if strategy.position_size != 0 and (buy or sell)
+    array.set(meghdar_01,0,open)
+
+O= array.get(meghdar_01, 0)
+H= array.get(meghdar_01, 1)
+L= array.get(meghdar_01, 2)
+C= array.get(meghdar_01, 3)
+
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+minSlBuy = C - (minSlIndex * 10 * syminfo.mintick)
+maxSlBuy = C - (maxSlIndex * 10 * syminfo.mintick)
+
+minSlSell = C + (minSlIndex * 10 * syminfo.mintick)
+maxSlSell = C + (maxSlIndex * 10 * syminfo.mintick)
+
+max=max(H,L)
+min=min(H,L)
+////////////////////////////////////////////////////
+
+
+
+
+if strategy.position_size==0
+    if buy
+        strategy.entry(id="Long", long=strategy.long, oca_name="x", oca_type=strategy.oca.cancel)
+    if sell    
+        strategy.entry(id="Short", long=strategy.short, oca_name="x", oca_type=strategy.oca.cancel)
+
+
+var stopB=0.0
+var stopS=0.0
+
+if strategy.position_size != 0
+    if buy
+        stopB := max < minSlBuy  and max > maxSlBuy  ? max : max >= minSlBuy  ? minSlBuy  : maxSlBuy
+
+    if sell
+        stopS := min > minSlSell and min < maxSlSell ? min : min <= minSlSell ? minSlSell : maxSlSell
+
+
+
+
+tpB= C + ((C - stopB)*Index)
+tpS= C - ((stopS-C)*Index)
+
+
+
+strategy.exit(id="Long Exit",  from_entry="Long",limit=tpB, stop=stopB, when=strategy.position_size > 0)
+
+
+strategy.exit(id="Short Exit", from_entry="Short",limit=tpS, stop=stopS, when=strategy.position_size < 0 )
+
+
+
+
+
+plot(tpB)
+plot(tpS,color=color.red)
+
+
+
+
+
+
+
+//plotshape(buy, title="Long 1",  style=shape.cross,  location=location.belowbar, color=color.green, size=size.tiny)
+//plotshape(sell,title="Short 1", style=shape.cross,  location=location.abovebar, color=#9c27b0,     size=size.tiny)
+
+
+
+
