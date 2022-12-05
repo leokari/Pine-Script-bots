@@ -1,0 +1,357 @@
+//@version=4
+
+strategy("Optimus", shorttitle="Optimus",initial_capital=1000, overlay=true)
+
+// Ichi
+conversionPeriods = input(9, minval=1, title="Tenkan", group="Ichi Settings") //Conversion Line Length")
+basePeriods = input(26, minval=1, title="Kijun", group="Ichi Settings")//"Base Line Length")
+laggingSpan2Periods = input(52, minval=1, title="Lagging Span 2 Length", group="Ichi Settings")
+displacement = input(26, minval=1, title="Displacement", group="Ichi Settings")
+donchian(len) => avg(lowest(len), highest(len))
+conversionLine = donchian(conversionPeriods)  // Tenkan
+baseLine = donchian(basePeriods)   // Kijun
+leadLine1 = avg(conversionLine, baseLine)   
+leadLine2 = donchian(laggingSpan2Periods)  
+spanA= offset(leadLine1, displacement - 1)    
+spanB = offset(leadLine2, displacement - 1)  
+
+// Fractals
+
+n = input(title="Periods", defval=2, minval=2, type=input.integer)
+
+// UpFractal
+bool upflagDownFrontier = true
+bool upflagUpFrontier0 = true
+bool upflagUpFrontier1 = true
+bool upflagUpFrontier2 = true
+bool upflagUpFrontier3 = true
+bool upflagUpFrontier4 = true
+
+for i = 1 to n
+    upflagDownFrontier := upflagDownFrontier and (high[n-i] < high[n])
+    upflagUpFrontier0 := upflagUpFrontier0 and (high[n+i] < high[n])
+    upflagUpFrontier1 := upflagUpFrontier1 and (high[n+1] <= high[n] and high[n+i + 1] < high[n])
+    upflagUpFrontier2 := upflagUpFrontier2 and (high[n+1] <= high[n] and high[n+2] <= high[n] and high[n+i + 2] < high[n])
+    upflagUpFrontier3 := upflagUpFrontier3 and (high[n+1] <= high[n] and high[n+2] <= high[n] and high[n+3] <= high[n] and high[n+i + 3] < high[n])
+    upflagUpFrontier4 := upflagUpFrontier4 and (high[n+1] <= high[n] and high[n+2] <= high[n] and high[n+3] <= high[n] and high[n+4] <= high[n] and high[n+i + 4] < high[n])
+flagUpFrontier = upflagUpFrontier0 or upflagUpFrontier1 or upflagUpFrontier2 or upflagUpFrontier3 or upflagUpFrontier4
+
+upFractal = (upflagDownFrontier and flagUpFrontier)
+
+
+// downFractal
+bool downflagDownFrontier = true
+bool downflagUpFrontier0 = true
+bool downflagUpFrontier1 = true
+bool downflagUpFrontier2 = true
+bool downflagUpFrontier3 = true
+bool downflagUpFrontier4 = true
+
+for i = 1 to n
+    downflagDownFrontier := downflagDownFrontier and (low[n-i] > low[n])
+    downflagUpFrontier0 := downflagUpFrontier0 and (low[n+i] > low[n])
+    downflagUpFrontier1 := downflagUpFrontier1 and (low[n+1] >= low[n] and low[n+i + 1] > low[n])
+    downflagUpFrontier2 := downflagUpFrontier2 and (low[n+1] >= low[n] and low[n+2] >= low[n] and low[n+i + 2] > low[n])
+    downflagUpFrontier3 := downflagUpFrontier3 and (low[n+1] >= low[n] and low[n+2] >= low[n] and low[n+3] >= low[n] and low[n+i + 3] > low[n])
+    downflagUpFrontier4 := downflagUpFrontier4 and (low[n+1] >= low[n] and low[n+2] >= low[n] and low[n+3] >= low[n] and low[n+4] >= low[n] and low[n+i + 4] > low[n])
+flagDownFrontier = downflagUpFrontier0 or downflagUpFrontier1 or downflagUpFrontier2 or downflagUpFrontier3 or downflagUpFrontier4
+
+downFractal = (downflagDownFrontier and flagDownFrontier)
+
+//plotshape(downFractal, style=shape.triangledown, location=location.belowbar, offset=-n, color=#F44336, size = size.small)
+//plotshape(upFractal, style=shape.triangleup,   location=location.abovebar, offset=-n, color=#009688, size = size.small)
+
+
+
+// 3 SMMA
+
+len1 = input(21, minval=1, title="Length")
+src1 = input(close, title="Source")
+smma1 = 0.0
+sma_1 = sma(src1, len1)
+smma1 := na(smma1[1]) ? sma_1 : (smma1[1] * (len1 - 1) + src1) / len1
+//plot(smma1, color=color.blue)
+
+len2 = input(50, minval=1, title="Length")
+src2 = input(close, title="Source")
+smma2 = 0.0
+sma_2 = sma(src2, len2)
+smma2 := na(smma2[1]) ? sma_2 : (smma2[1] * (len2 - 1) + src2) / len2
+//plot(smma2, color=color.green)
+
+len3 = input(200, minval=1, title="Length")
+src3 = input(close, title="Source")
+smma3 = 0.0
+sma_3 = sma(src3, len3)
+smma3 := na(smma3[1]) ? sma_3 : (smma3[1] * (len3 - 1) + src3) / len3
+//plot(smma3, color=color.red)
+
+// RSI
+
+rsi = rsi(close, 14)
+
+
+// ATR
+
+atrLength  = input(title="ATR Length", type=input.integer, defval=14, minval=1, group="ATR Settings")
+lookback   = input(title="Bars To Look Back For Highs/Lows", type=input.integer, defval=7, minval=1, group="ATR Settings")
+multiplier = input(title="ATR Multiplier", type=input.float, defval=1.0, minval=0.1, group="ATR Settings")
+trailType  = input(title="Trailing Stop Type", type=input.string, defval="High/Low", options=["High/Low", "Close", "Open"], group="ATR Settings")
+// Get display table inputs
+showATR     = input(title="Show ATR?", type=input.bool, defval=true, group="Display Settings")
+atrColor    = input(title="ATR Color", type=input.color, defval=color.new(color.blue, 100), group="Display Settings")
+atrLocation = input(title="ATR Location", type=input.string, defval="BR", options=["TR", "TC", "BR", "BC"], group="Display Settings")
+// Calculate data
+atr = atr(atrLength)
+longStop = (trailType == "High/Low" ? lowest(low, lookback) : trailType == "Close" ? close : open) - atr * multiplier
+shortStop = (trailType == "High/Low" ? highest(high, lookback) : trailType == "Close" ? close : open) + atr * multiplier
+
+//plot(longStop, color=color.green)
+//plot(shortStop, color=color.red)
+
+// ******************************TIME********************************
+
+starTtimePeriod = time >= timestamp(syminfo.timezone, 2021, 08, 10, 03, 30)
+enDtimePeriod   = time <= timestamp(syminfo.timezone, 2021, 08, 16, 02, 30)
+
+
+// ****************************Strategy****************************
+
+
+buy = downFractal==true ? smma2> smma3 and smma1 > smma2   and (low and high > smma1) and rsi > 50 : na
+    
+    
+sell = upFractal==true ? smma3 > smma2 and smma1 < smma2   and (low and high < smma1) and rsi < 50 : na
+
+//plotshape(sell, style=shape.triangledown, location=location.abovebar, offset=-n, color=#F44336, size = size.small)
+//plotshape(buy, style=shape.triangleup,   location=location.belowbar, offset=-n, color=#009688, size = size.small)
+
+
+/////////////////////////////////////////////////////////////////////Dynamic TOP///////////////////////////////////////////////////////////
+
+//********************************* maximum close
+var meghdar_max_close_01=array.new_float(1)
+var shart_buy_01=array.new_bool(1)
+
+if buy
+    array.set(shart_buy_01,0,true)
+    array.set(meghdar_max_close_01,0,close)
+    //Label = label.new(x=bar_index,y=na,text=tostring(array.get(meghdar_max_close_01,0)),    xloc=xloc.bar_index,    yloc=yloc.belowbar,    color=color.green,     textcolor=color.white,     style=label.style_label_up,     size=size.tiny)
+
+
+if array.get(shart_buy_01,0)==true and close >= array.get(meghdar_max_close_01,0)
+    array.set(meghdar_max_close_01,0,close)
+
+if sell
+    array.set(shart_buy_01,0,false)
+
+
+//********************************* minimum close
+
+var meghdar_min_close_01=array.new_float(1)
+var shart_sell_01=array.new_bool(1)
+
+if sell
+    array.set(meghdar_min_close_01,0,close)
+    array.set(shart_sell_01,0,true)
+    //Label = label.new(x=bar_index,y=na,text=tostring(array.get(meghdar_min_close_01,0)),    xloc=xloc.bar_index,    yloc=yloc.abovebar,    color=color.red,     textcolor=color.white,     style=label.style_label_down,     size=size.tiny)
+
+if array.get(shart_sell_01,0)==true and close <= array.get(meghdar_min_close_01,0)
+    array.set(meghdar_min_close_01,0,close)
+
+if buy
+    array.set(shart_sell_01,0,false)
+
+//********************************* maximum minimum price
+maxPrice = array.get(meghdar_max_close_01,0)
+minPrice = array.get(meghdar_min_close_01,0)
+
+
+trailDaynamicTpBuy = input(title="Trail Daynamic Tp Buy (%)", type=input.float, step=0.001, defval=0.1, group="TP Settings") * 0.01
+trailDaynamicTpSell = input(title="Trail Daynamic Tp Sell (%)", type=input.float,  step=0.001, defval=0.1, group="TP Settings") * 0.01
+
+
+daynamicTpBuy  = maxPrice * (1 - trailDaynamicTpBuy)
+daynamicTpSell = minPrice * (1 + trailDaynamicTpSell)
+
+
+//plot(maxPrice,color =color.green)
+//plot(minPrice ,color =color.red)
+//plot(daynamicTpBuy,color =color.blue)
+//plot(daynamicTpSell,color =color.black)
+
+
+// *********************************STOP LOSS************************
+
+
+//////////////array detials of first candle  of position////////////////////////
+
+var meghdar_01=array.new_float(4)
+
+if buy==true
+    array.set(meghdar_01,0,open)
+    array.set(meghdar_01,1,high)
+    array.set(meghdar_01,2,low)
+    array.set(meghdar_01,3,close)
+    
+if sell==true
+    array.set(meghdar_01,0,open)
+    array.set(meghdar_01,1,high)
+    array.set(meghdar_01,2,low)
+    array.set(meghdar_01,3,close)
+ 
+O= array.get(meghdar_01, 0)
+H= array.get(meghdar_01, 1)
+L= array.get(meghdar_01, 2)
+C= array.get(meghdar_01, 3)
+
+
+oneAndHalfCandleGreen = C - (1.5*(H - L))
+oneAndHalfCandleRed   = C + (1.5*(H - L))
+//plot(C, color=color.black)
+//////////////////////////////////array for first spanA and spanB for position /////////////////////////////////////
+
+
+var meghdar_01_ichi=array.new_float(2)
+
+if buy==true
+    array.set(meghdar_01_ichi,0,spanA)
+    array.set(meghdar_01_ichi,1,spanB)
+   
+
+if sell==true
+    array.set(meghdar_01_ichi,0,spanA)
+    array.set(meghdar_01_ichi,1,spanB)
+    
+A= array.get(meghdar_01_ichi, 0)
+B= array.get(meghdar_01_ichi, 1)
+
+//////////////////////////////////////////////////////   toch cloud  /////////////////////////////
+
+
+inCloud     = A > B and H - L <  A - B and ((A >= L and B <= L) and (A >= H and B <= H))  //kandel kamel dakhel komo
+touchCloud1 = A > B and H - L <  A - B and ((A >= L and B <= L) or  (A >= H and B <= H))  // komo bozorgtar az candle
+touchCloud2 = A > B and H - L >= A - B and ((A >= L and A <= H) or  (B >= L and B <= H))  //  komo kochektar az candle
+
+inCloudr     = B > A and H - L <  B - A and ((B >= L and A<= L) and (B >= H and A <= H))  //kandel kamel dakhel komo
+touchCloudr1 = B > A and H - L <  B - A and ((B >= L and A<= L) or  (B >= H and A <= H))  // komo bozorgtar az candle
+touchCloudr2 = B > A and H - L >= B - A and ((B >= L and B<= H) or  (A >= L and A <= H))  //  komo kochektar az candle
+
+
+touchCloud = inCloud or touchCloud1 or touchCloud2 or inCloudr or touchCloudr1 or touchCloudr2
+
+//////////////////////////////////////////////////////Kaf va saghf///////////////////////////////////////////
+
+   
+var meghdar_kaf=array.new_float(5)
+
+if buy==true
+    array.set(meghdar_kaf,0,low[1])
+    array.set(meghdar_kaf,1,low[2])
+    array.set(meghdar_kaf,2,low[3])
+    array.set(meghdar_kaf,3,low[4])
+    array.set(meghdar_kaf,4,low[5])
+    
+l1= array.get(meghdar_kaf, 0)
+l2= array.get(meghdar_kaf, 1)
+l3= array.get(meghdar_kaf, 2)
+l4= array.get(meghdar_kaf, 3)
+l5= array.get(meghdar_kaf, 4)
+
+var meghdar_saghf=array.new_float(5)
+
+if sell==true
+    array.set(meghdar_saghf,0,high[1])
+    array.set(meghdar_saghf,1,high[2])
+    array.set(meghdar_saghf,2,high[3])
+    array.set(meghdar_saghf,3,high[4])
+    array.set(meghdar_saghf,4,high[5])
+    
+h1= array.get(meghdar_saghf, 0)
+h2= array.get(meghdar_saghf, 1)
+h3= array.get(meghdar_saghf, 2)
+h4= array.get(meghdar_saghf, 3)
+h5= array.get(meghdar_saghf, 4)
+
+kaf  = min(l1,l2,l3,l4,l5)
+saghf= max(h1,h2,h3,h4,h5)
+
+
+///////////////////////////////////stop loss////////////////////////
+
+perc = input(title="Static Stop (%)", type=input.float, step=0.001, defval=0.11, group="Limit Settings") * 0.01
+staticStopBuy  = C *(1-perc)// minimun stop lose
+staticStopSell = C*(1+perc)// minimum stop loss
+
+    
+slBuy  = touchCloud ? max(min(kaf, oneAndHalfCandleGreen),staticStopBuy) : max(oneAndHalfCandleGreen, staticStopBuy)
+
+slSell = touchCloud ? min(max(saghf, oneAndHalfCandleRed),staticStopSell): min(oneAndHalfCandleRed, staticStopSell)
+
+//plot(slBuy, color=color.red)
+//plot(slSell, color=color.orange)
+// *********************************TOP PROFIT************************
+
+indextp= input(3,"index top profit", group="Limit Settings")
+// later change C to strategy.position_avg_price becuase in real you have position alan to backtest hastim//
+stillTpBuy  = C+ ((C - slBuy) * indextp )
+
+stillTpSell = C - ((slSell - C) * indextp )
+
+//plot(stillTpBuy, color=color.green)
+//plot(stillTpSell, color=color.blue)
+
+
+//**********************strategy.position_avg_price == close candley ke position gerefti rosh*********************************
+
+// traling or risk free
+riskFreeIndex= input(title= "Risk Free Index",step=.001, defval=1.0, group="Limit Settings")
+stop2buy = C + ((C - slBuy)*riskFreeIndex)
+stop2sell= C - ((slSell - C )*riskFreeIndex)
+
+strategy.entry("long", strategy.long, when=buy)
+strategy.exit("Stop long", from_entry="long", profit=daynamicTpBuy , stop=slBuy, trail_price=stop2buy )
+
+
+strategy.entry("short", strategy.short, when=sell)
+strategy.exit("stop short", from_entry="short", profit=daynamicTpSell   ,stop=slSell, trail_price=stop2sell)
+
+    
+// ************************ ALERT***********************************
+
+//alertcondition(Long1, "Long1")
+//alertcondition(Long2, "Long2")
+
+//alertcondition(Short1, "Short1")
+//alertcondition(Short2, "Short2")
+////////////////////////
+show_slBuy = input(defval = false, title = "show slBuy")
+show_slSell = input(defval = false, title = "show slSell")
+show_oneAndHalfCandleGreen = input(defval = false, title = "show oneAndHalfCandleGreen")
+show_oneAndHalfCandleRed = input(defval = false, title = "show oneAndHalfCandleRED")
+show_kaf = input(defval = false, title = "show kaf")
+show_saghf = input(defval = false, title = "show saghf")
+show_C = input(defval = false, title = "show C")
+show_daynamicTpBuy = input(defval = false, title = "show daynamicTpBuy")
+show_daynamicTpSell = input(defval = false, title = "show daynamicTpSell")
+show_stop2buy  = input(defval = false, title = "stop 2 buy ")
+show_stop2sell  = input(defval = false, title = "stop 2 sell ")
+show_staticStopBuy  = input(defval = false, title = "static Stop Buy ")
+show_staticStopSell  = input(defval = false, title = "static Stop Sell ")
+
+
+
+
+plot(show_slBuy ? slBuy : na, color=color.red)
+plot(show_slSell ? slSell : na, color=color.red)
+plot(show_oneAndHalfCandleGreen? oneAndHalfCandleGreen : na, color=color.fuchsia)
+plot(show_oneAndHalfCandleRed ? oneAndHalfCandleRed : na, color=color.fuchsia)
+plot(show_kaf ? slBuy : na, color=color.purple)
+plot(show_saghf ? slSell : na, color=color.purple)
+plot(show_C ? C :na, color=#d5c5cc)
+plot(show_daynamicTpBuy ? daynamicTpBuy : na, color=#9c27b0)
+plot(show_daynamicTpSell ? daynamicTpSell : na, color=#9c27b0)
+plot(show_stop2buy  ? stop2buy : na, color=color.blue)
+plot(show_stop2sell ? stop2sell : na, color=color.blue)
+plot(show_staticStopBuy ? staticStopBuy : na, color=color.blue)
+plot(show_staticStopSell? staticStopSell : na, color=color.blue)
